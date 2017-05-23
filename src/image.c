@@ -180,7 +180,9 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
         float prob = probs[i][class];
         if(prob > thresh){
 
-            int width = im.h * .012;
+            // int width = im.h * .012;
+            int width = 2;
+            int label_width = 0.5; //(im.h*.03)/10
 
             if(0){
                 width = pow(prob, 1./2.)*10+1;
@@ -214,13 +216,13 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
 
             draw_box_width(im, left, top, right, bot, width, red, green, blue);
             if (alphabet) {
-                image label = get_label(alphabet, names[class], (im.h*.03)/10);
+                image label = get_label(alphabet, names[class],label_width);
                 draw_label(im, top + width, left, label, rgb);
                 free_image(label);
             }
         }
     }
-}
+}  
 
 void transpose_image(image im)
 {
@@ -852,6 +854,31 @@ image letterbox_image(image im, int w, int h)
         new_h = h;
         new_w = (im.w * h)/im.h;
     }
+    printf("new_w = %d, new_h = %d\n", new_w, new_h);
+    image resized = resize_image(im, new_w, new_h);
+    image boxed = make_image(w, h, im.c);
+    fill_image(boxed, .5);
+    //int i;
+    //for(i = 0; i < boxed.w*boxed.h*boxed.c; ++i) boxed.data[i] = 0;
+    embed_image(resized, boxed, (w-new_w)/2, (h-new_h)/2); 
+    free_image(resized);
+    return boxed;
+}
+
+
+image letterbox_image_with_info(image im, int w, int h, int * w_resized, int * h_resized)
+{
+    int new_w = im.w;
+    int new_h = im.h;
+    if (((float)w/im.w) < ((float)h/im.h)) {
+        new_w = w;
+        new_h = (im.h * w)/im.w;
+    } else {
+        new_h = h;
+        new_w = (im.w * h)/im.h;
+    }
+    *h_resized = new_h;
+    *w_resized = new_w;
     image resized = resize_image(im, new_w, new_h);
     image boxed = make_image(w, h, im.c);
     fill_image(boxed, .5);

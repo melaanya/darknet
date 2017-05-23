@@ -7,14 +7,15 @@
 #include "demo.h"
 #include "option_list.h"
 #include "blas.h"
+#include "test_calling_from_python.h"
 
 static int coco_ids[] = {1,2,3,4,5,6,7,8,9,10,11,13,14,15,16,17,18,19,20,21,22,23,24,25,27,28,31,32,33,34,35,36,37,38,39,40,41,42,43,44,46,47,48,49,50,51,52,53,54,55,56,57,58,59,60,61,62,63,64,65,67,70,72,73,74,75,76,77,78,79,80,81,82,84,85,86,87,88,89,90};
 
 void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, int ngpus, int clear)
 {
     list *options = read_data_cfg(datacfg);
-    char *train_images = option_find_str(options, "train", "data/train.list");
-    char *backup_directory = option_find_str(options, "backup", "/backup/");
+    char *train_images = option_find_str(options, "train", "");
+    char *backup_directory = option_find_str(options, "backup", "");
 
     srand(time(0));
     char *base = basecfg(cfgfile);
@@ -50,7 +51,8 @@ void train_detector(char *datacfg, char *cfgfile, char *weightfile, int *gpus, i
     float jitter = l.jitter;
 
     list *plist = get_paths(train_images);
-    //int N = plist->size;
+    int N = plist->size;
+    printf("N = %d, filename = %s\n", N, train_images);
     char **paths = (char **)list_to_array(plist);
 
     load_args args = {0};
@@ -591,7 +593,7 @@ void validate_detector_recall(char *cfgfile, char *weightfile)
 void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filename, float thresh, float hier_thresh, char *outfile, int fullscreen)
 {
     list *options = read_data_cfg(datacfg);
-    char *name_list = option_find_str(options, "names", "data/names.list");
+    char *name_list = option_find_str(options, "names", "ds/my.names");
     char **names = get_labels(name_list);
 
     image **alphabet = load_alphabet();
@@ -617,11 +619,9 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             strtok(input, "\n");
         }
         image im = load_image_color(input,0,0);
+        int old_width = im.w;
+        int old_height = im.h;
         image sized = letterbox_image(im, net.w, net.h);
-        //image sized = resize_image(im, net.w, net.h);
-        //image sized2 = resize_max(im, net.w);
-        //image sized = crop_image(sized2, -((net.w - sized2.w)/2), -((net.h - sized2.h)/2), net.w, net.h);
-        //resize_network(&net, sized.w, sized.h);
         layer l = net.layers[net.n-1];
 
         box *boxes = calloc(l.w*l.h*l.n, sizeof(box));
@@ -635,6 +635,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         get_region_boxes(l, im.w, im.h, net.w, net.h, thresh, probs, boxes, 0, 0, hier_thresh, 1);
         if (nms) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
         //else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
+        // print_detections_to_file(sized, l.w*l.h*l.n, thresh, boxes, probs, l.classes, old_width, old_height);
         draw_detections(im, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
         if(outfile){
             save_image(im, outfile);
@@ -659,6 +660,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         if (filename) break;
     }
 }
+
 
 void run_detector(int argc, char **argv)
 {
@@ -706,7 +708,24 @@ void run_detector(int argc, char **argv)
     char *cfg = argv[4];
     char *weights = (argc > 5) ? argv[5] : 0;
     char *filename = (argc > 6) ? argv[6]: 0;
+
     if(0==strcmp(argv[2], "test")) test_detector(datacfg, cfg, weights, filename, thresh, hier_thresh, outfile, fullscreen);
+    else if(0==strcmp(argv[2], "testNew")) {
+        initialize_network_test(cfg, weights);
+        hot_predict(datacfg, filename, thresh, hier_thresh);
+    }
+    else if(0==strcmp(argv[2], "testParam")) {
+        char * pEnd;
+        int width = (argc > 7) ? strtol(argv[7], &pEnd, 10): 416;
+        int height = (argc > 8) ? strtol(argv[8], &pEnd, 10): 416;
+        printf("%d %d\n", width, height);
+
+        cfg_param param = {width, height};
+
+        initialize_network_test_param(cfg, weights, param);
+        printf("here\n");
+        hot_predict(datacfg, filename, thresh, hier_thresh);
+    }
     else if(0==strcmp(argv[2], "train")) train_detector(datacfg, cfg, weights, gpus, ngpus, clear);
     else if(0==strcmp(argv[2], "valid")) validate_detector(datacfg, cfg, weights, outfile);
     else if(0==strcmp(argv[2], "valid2")) validate_detector_flip(datacfg, cfg, weights, outfile);

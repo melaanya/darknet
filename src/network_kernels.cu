@@ -10,7 +10,6 @@ extern "C" {
 #include "network.h"
 #include "data.h"
 #include "utils.h"
-#include "parser.h"
 
 #include "crop_layer.h"
 #include "connected_layer.h"
