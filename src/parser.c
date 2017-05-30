@@ -801,8 +801,18 @@ network parse_network_cfg_param(char *filename, cfg_param grid_parameters)
         }
     }   
     free_list(sections);
-    net.outputs = get_network_output_size(net);
-    net.output = get_network_output(net);
+    layer out = get_network_output_layer(net);
+    net.outputs = out.outputs;
+    net.truths = out.outputs;
+    if(net.layers[net.n-1].truths) net.truths = net.layers[net.n-1].truths;
+    net.output = out.output;
+    net.input = calloc(net.inputs*net.batch, sizeof(float));
+    net.truth = calloc(net.truths*net.batch, sizeof(float));
+#ifdef GPU
+    net.output_gpu = out.output_gpu;
+    net.input_gpu = cuda_make_array(net.input, net.inputs*net.batch);
+    net.truth_gpu = cuda_make_array(net.truth, net.truths*net.batch);
+#endif
     if(workspace_size){
         //printf("%ld\n", workspace_size);
 #ifdef GPU

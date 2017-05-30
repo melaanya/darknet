@@ -187,15 +187,34 @@ void initialize_network_test_param(char *cfgfile, char *weightfile, cfg_param gr
 
     // network_created = 1;
     // current_network = net;
+    size_t free_byte;
+    size_t total_byte;
 
-    network net = parse_network_cfg_param(cfgfile, grid_parameters);
-    if(weightfile){
-        load_weights(&net, weightfile);
+    if (network_created) {
+        free_network(current_network);
     }
-    set_batch_network(&net, 1);
-    
+
+    cudaMemGetInfo( &free_byte, &total_byte );
+    double free_db = (double)free_byte;
+    double total_db = (double)total_byte;
+    double used_db = total_db - free_db;
+    // printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n", used_db/1024.0/1024.0, free_db/1024.0/1024.0, total_db/1024.0/1024.0);
+
+    current_network = parse_network_cfg_param(cfgfile, grid_parameters);
+    if(weightfile){
+        load_weights(&current_network, weightfile);
+    }
+    set_batch_network(&current_network, 1);
+
+
+    cudaMemGetInfo( &free_byte, &total_byte );
+    free_db = (double)free_byte;
+    total_db = (double)total_byte;
+    used_db = total_db - free_db;
+    // printf("GPU memory usage: used = %f, free = %f MB, total = %f MB\n", used_db/1024.0/1024.0, free_db/1024.0/1024.0, total_db/1024.0/1024.0);
+
+
     network_created = 1;
-    current_network = net;
 }
 
 
@@ -209,7 +228,6 @@ result_box_arr hot_predict(char *datacfg, char *filename, float thresh, float hi
     }
     // printf("%s %s %f %f\n", datacfg, filename, thresh, hier_thresh);
     srand(2222222);
-    clock_t time;
     char buff[256];
     char *input = buff;
     int j;
@@ -231,10 +249,9 @@ result_box_arr hot_predict(char *datacfg, char *filename, float thresh, float hi
     for(j = 0; j < l.w*l.h*l.n; ++j) probs[j] = calloc(l.classes + 1, sizeof(float *));
 
     float *X = sized.data;
-    time=clock();
     network_predict(net, X);
     // printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
-    get_region_boxes(l, 1, 1, thresh, probs, boxes, 0, 0, hier_thresh);
+    get_region_boxes(l, 1, 1, net.w, net.h, thresh, probs, boxes, 0, 0, hier_thresh, 1);
     if (l.softmax_tree && nms) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
     else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
 

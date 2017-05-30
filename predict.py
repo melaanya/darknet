@@ -1,9 +1,8 @@
 from ctypes import *
-import sys
+import sys, json
 import numpy as np
 from os import path
 from optparse import OptionParser
-from operator import itemgetter
 
 def check_network(dll):
     return c_int.in_dll(dll, "network_created")
@@ -31,25 +30,27 @@ class GridParam(Structure):
  # hypes_path - path to data description (for example: "ds/my.data")
  # options['model_def_path'] - model description ("cfg/yolo-my-test.cfg") REQUIRED!!!
  # more parameters in options: thresh
-def initialize(weights_path, hypes_path, options=None):
+def initialize(weights_path, hypes_path, config=None):
 
-    # default settings
-    if options is None:
-        print ("model description required!!! (for example cfg/yolo-my-test.cfg ")
+    if "yolo" not in config:
+        print ("model description required (for example cfg/yolo-my-test.cfg ")
         sys.exit()
 
     mydll = cdll.LoadLibrary('/darknet/libresult.so')
-    if 'pred_options' in options and 'cfg_width' in options['pred_options'] and 'cfg_height' in options['pred_options']:
-        grid_parameters = GridParam(options['pred_options']['cfg_width'], options['pred_options']['cfg_height'])
-        mydll.initialize_network_test_param(str(options['model_def_path']), str(weights_path), grid_parameters)
-        print("initialized")
+    if 'pred_options' in config and 'cfg_width' in config['pred_options']:
+        grid_parameters = GridParam(config['pred_options']['cfg_width'], config['pred_options']['cfg_width'])
+        mydll.initialize_network_test_param(str(config["yolo"]['model_def_path']), str(weights_path), grid_parameters)
+    elif 'cfg_width' in config["yolo"]:
+        print("changed cfg")
+        grid_parameters = GridParam(config["yolo"]['cfg_width'], config["yolo"]['cfg_width'])  # make square as we should save aspect ratio
+        mydll.initialize_network_test_param(str(config["yolo"]['model_def_path']), str(weights_path), grid_parameters)
     else:
-        mydll.initialize_network_test(str(options['model_def_path']), str(weights_path))
+        mydll.initialize_network_test(str(config["yolo"]['model_def_path']), str(weights_path))
 
-    result = {'dll' : mydll, 'hypes_path': hypes_path, 'thresh': options['thresh'], 'hier_thresh': options['hier_thresh']}
+    result = {'dll' : mydll, 'hypes_path': hypes_path, 'thresh': config["yolo"]['thresh'], 'hier_thresh': config["yolo"]['hier_thresh']}
 
-    if "classID" in options:
-        result.update({"classID": options["classID"]})
+    if "classID" in config:
+        result.update({"classID": config["classID"]})
 
     return result
 
@@ -59,6 +60,7 @@ def hot_predict(image_path, init_params, to_json=True):
 
         if not path.exists(image_path):
             print("danger! path doesn't exist! \n")
+            exit(1)
 
         if 'pred_options' in init_params:
             init_params['thresh'] = init_params['pred_options']['thresh']
@@ -82,11 +84,8 @@ def hot_predict(image_path, init_params, to_json=True):
                 if box['x1'] == box['x2'] or box['y1'] == box['y2']:
                     continue;
 
-                # print(box)
-
-                # yolo v2 was trained for classes from 0 to 18, but we need label 0 for background - so renumerating 
-                #  todo: retrain yolo v2 for classes from 1 to 19 and compare the results
-                # note: yolo v2 requires classes from 0 ! maybe crucial, you need to think about it
+                # yolo v2 was trained for classes from 0 to 18, but we need label 0 for background - so renumerating
+                # note: yolo v2 requires classes from 0 so we can't retrain from 1 to 19
                 if "classID" in init_params:
                     box['classID'] = init_params["classID"]
                 else:
@@ -101,23 +100,24 @@ def hot_predict(image_path, init_params, to_json=True):
 
 
 def main():
-    parser = OptionParser(usage='usage: %prog [options] <dataset path> <weights> <hypes>')
-    options = {}
-    options['thresh'] = 0.2
-    options['hier_thresh'] = 0.5
-    options['model_def_path'] = "cfg/yolo-my-test.cfg"
+    parser = OptionParser(usage='usage: %prog [options] <config>')
+    _, args = parser.parse_args()
 
-    hypes_path = "ds/my.data"
-    weights = "backup/yolo-my_final.weights"
-    image_filename = "ds/images/1.jpg"
+    if len(args) < 1:
+        print('Provide path configuration json file')
+        return
+
+    if not path.exists(args[0]) or not path.isfile(args[0]):
+        print ('Bad configuration path provided!')
+        return
+
+    config = json.load(open(args[0], "r"))
+    # image for test
+    image_filename = "1.jpg"
 
 
-    init_params = initialize(weights, hypes_path, options)
-
+    init_params = initialize(config["weights"], config["hypes"], config)
     result = hot_predict(image_filename, init_params, True)
-
-    # print(result)
-
 
 if __name__ == '__main__':
     main()

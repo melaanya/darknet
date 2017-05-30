@@ -53,11 +53,8 @@ image random_crop_image(image im, int w, int h);
 image random_augment_image(image im, float angle, float aspect, int low, int high, int size);
 void random_distort_image(image im, float hue, float saturation, float exposure);
 image letterbox_image(image im, int w, int h);
-<<<<<<< Updated upstream
 void letterbox_image_into(image im, int w, int h, image boxed);
-=======
 image letterbox_image_with_info(image im, int w, int h, int * w_resized, int * h_resized);
->>>>>>> Stashed changes
 image resize_image(image im, int w, int h);
 image resize_min(image im, int min);
 image resize_max(image im, int max);
