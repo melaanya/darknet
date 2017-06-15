@@ -621,8 +621,6 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
             strtok(input, "\n");
         }
         image im = load_image_color(input,0,0);
-        int old_width = im.w;
-        int old_height = im.h;
         image sized = letterbox_image(im, net.w, net.h);
         layer l = net.layers[net.n-1];
 
@@ -637,7 +635,6 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         get_region_boxes(l, im.w, im.h, net.w, net.h, thresh, probs, boxes, 0, 0, hier_thresh, 1);
         if (nms) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
         //else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
-        // print_detections_to_file(sized, l.w*l.h*l.n, thresh, boxes, probs, l.classes, old_width, old_height);
         draw_detections(im, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
         if(outfile){
             save_image(im, outfile);

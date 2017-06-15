@@ -25,7 +25,6 @@ class GridParam(Structure):
         ("width", c_int),
         ("height", c_int)]
 
-
  # weights_path - path to weights (for example: "backup/yolo-my_final.weights")
  # hypes_path - path to data description (for example: "ds/my.data")
  # options['model_def_path'] - model description ("cfg/yolo-my-test.cfg") REQUIRED!!!
@@ -57,7 +56,7 @@ def initialize(weights_path, hypes_path, config=None):
 
 def hot_predict(image_path, init_params, to_json=True):
     if check_network(init_params['dll']):
-
+        # print(image_path)
         if not path.exists(image_path):
             print("danger! path doesn't exist! \n")
             exit(1)
@@ -114,7 +113,6 @@ def main():
     config = json.load(open(args[0], "r"))
     # image for test
     image_filename = "1.jpg"
-
 
     init_params = initialize(config["weights"], config["hypes"], config)
     result = hot_predict(image_filename, init_params, True)

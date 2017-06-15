@@ -485,7 +485,7 @@ void ipl_into_image(IplImage* src, image im)
     int i, j, k;
 
     for(i = 0; i < h; ++i){
-        for(k= 0; k < c; ++k){
+        for(k = 0; k < c; ++k){
             for(j = 0; j < w; ++j){
                 im.data[k*w*h + i*w + j] = data[i*step + j*c + k]/255.;
             }

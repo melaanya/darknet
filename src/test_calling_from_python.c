@@ -131,9 +131,6 @@ result_box_arr result_detection(image im, int num, float thresh, box *boxes, flo
             if(top < start_y) top = start_y;
             if(bot > end_y) bot = end_y;
 
-            if (left == right || top == bot)
-                continue;
-
             // printf("\n %d %d %f %f \n\n ", width_resized, height_resized, w_coeff, h_coeff);
 
             // printf("\n %d %d %d %d, last_right = %d, \n\n ", left, top, right, bot, (start_x + width_resized) - 1);
@@ -147,6 +144,9 @@ result_box_arr result_detection(image im, int num, float thresh, box *boxes, flo
             // printf(" l= %f, r = %f, t = %f, b = %f\n", res.pred_boxes[count].left, res.pred_boxes[count].right, res.pred_boxes[count].top, res.pred_boxes[count].bottom);
 
             res.pred_boxes[count].class_num = class;
+
+            if ((int)res.pred_boxes[count].left == (int)res.pred_boxes[count].right || (int)res.pred_boxes[count].top == (int)res.pred_boxes[count].bottom)
+                continue;
 
             // check valid positions
 
@@ -176,17 +176,6 @@ void initialize_network_test(char *cfgfile, char *weightfile)
 
 void initialize_network_test_param(char *cfgfile, char *weightfile, cfg_param grid_parameters) 
 {
-    // network * net = (network *)malloc(sizeof(network));
-    // *net = parse_network_cfg_param(cfgfile, grid_parameters);
-    // if(weightfile){
-    //     load_weights(net, weightfile);
-    // }
-    // set_batch_network(net, 1);
-    // if (network_created)
-    //     free(current_network);
-
-    // network_created = 1;
-    // current_network = net;
     size_t free_byte;
     size_t total_byte;
 
@@ -275,4 +264,63 @@ result_box_arr hot_predict(char *datacfg, char *filename, float thresh, float hi
     free_ptrs((void **)probs, l.w*l.h*l.n);
 
     return res;
+}
+
+
+result_box_arr hot_predict_image(char *datacfg, image im, float thresh, float hier_thresh) {
+    network net;
+    if (network_created)
+        net = current_network;
+    else {
+        printf("network isn't initialized!\n");
+        exit(1);
+    }
+    srand(2222222);
+    int j;
+    float nms=.4;
+
+    int old_width = im.w;
+    int old_height = im.h;
+    int width_resized, height_resized;
+    // printf("old_width = %d, old_height = %d\n", old_width, old_height);
+    image sized = letterbox_image_with_info(im, net.w, net.h, &width_resized, &height_resized);
+    // printf("new_width = %d, new_height = %d\n", width_resized, height_resized);
+    layer l = net.layers[net.n-1];
+
+    box *boxes = calloc(l.w*l.h*l.n, sizeof(box));
+    float **probs = calloc(l.w*l.h*l.n, sizeof(float *));
+    for(j = 0; j < l.w*l.h*l.n; ++j) probs[j] = calloc(l.classes + 1, sizeof(float *));
+
+    float *X = sized.data;
+    network_predict(net, X);
+    // printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
+    get_region_boxes(l, 1, 1, net.w, net.h, thresh, probs, boxes, 0, 0, hier_thresh, 1);
+    if (l.softmax_tree && nms) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
+    else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
+
+    result_box_arr res = result_detection(sized, l.w*l.h*l.n, thresh, boxes, probs, l.classes, old_width, old_height, width_resized, height_resized);
+    // print_detections_to_file(sized, l.w*l.h*l.n, thresh, boxes, probs, l.classes, old_width, old_height);
+
+                 // for drawing bboxes on the pictures
+
+    // list *options = read_data_cfg(datacfg);
+    // char *name_list = option_find_str(options, "names", "data/names.list");
+    // char **names = get_labels(name_list);
+
+    // image **alphabet = load_alphabet();
+    // draw_detections(sized, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
+    // save_image(sized, "predictions");
+    // show_image(sized, "predictions");
+
+    free_image(sized);
+    free(boxes);
+    free_ptrs((void **)probs, l.w*l.h*l.n);
+
+    return res;
+}
+
+void freeme(float * ptr)
+{
+    printf("freeing address: %p\n", ptr);
+    free(ptr);
 }
