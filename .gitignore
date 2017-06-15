@@ -15,6 +15,7 @@ convnet/
 decaf/
 submission/
 cfg/
+data/
 darknet
 .fuse*
 
