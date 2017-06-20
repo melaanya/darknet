@@ -268,7 +268,7 @@ result_box_arr hot_predict(char *datacfg, char *filename, float thresh, float hi
 }
 
 
-result_box_arr hot_predict_image(char *datacfg, image im, float thresh, float hier_thresh) {
+result_box_arr hot_predict_image(char *datacfg, image im, float thresh, float hier_thresh, int count) {
     network net;
     if (network_created)
         net = current_network;
@@ -310,7 +310,13 @@ result_box_arr hot_predict_image(char *datacfg, image im, float thresh, float hi
 
     // image **alphabet = load_alphabet();
     // draw_detections(sized, l.w*l.h*l.n, thresh, boxes, probs, names, alphabet, l.classes);
-    // save_image(sized, "predictions");
+
+    // char count_str[15];
+    // sprintf(count_str, "%d", count);
+    // char filename[256] = "predictions_";
+    // strcat(filename, count_str);
+    
+    // save_image(sized, filename);
     // show_image(sized, "predictions");
 
     free_image(sized);

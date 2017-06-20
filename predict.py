@@ -1,19 +1,44 @@
 from __future__ import division
 from ctypes import *
-import sys, json
+import sys, json, subprocess
 import numpy as np
 from os import path
 from optparse import OptionParser
-from PIL import Image
+from PIL import Image, ImageDraw
 
 if __package__ is None:
     import sys
     sys.path.append(path.abspath(path.join(path.dirname(__file__), path.pardir)))
     sys.path.append("/darknet/detect-widgets")
+
 from geometry import iou
 
 def check_network(dll):
     return c_int.in_dll(dll, "network_created")
+
+def save_results(src_path, dst_path, rects, classes):
+    """Saves results of the prediction.
+
+    Args:
+        src_path (string): The path to source image to predict bounding boxes.
+        dst_path (string): The path to source image to predict bounding boxes.
+        rects (list): The collection of boxes to draw on screenshot.
+        classes (list): The collection of classes corresponding their ids 
+
+    Returns: 
+        Nothing.
+    """
+
+    # draw
+    new_img = Image.open(src_path)
+    draw = ImageDraw.Draw(new_img)
+    for r in rects:
+        draw.text(((r['x1'] + r['x2']) / 2, (r['y1'] + r['y2']) / 2),
+                  text=classes[r['classID']], fill='purple')
+        draw.rectangle([r['x1'], r['y1'], r['x2'], r['y2']], outline=(255, 0, 0))
+    # save
+    new_img.save(dst_path)
+    subprocess.call(['chmod', '644', dst_path])
 
 
 class Box(Structure):
@@ -104,7 +129,7 @@ def regular_predict(image_path, init_params):
     init_params['dll'].hot_predict.restype = BoxArray
     pred_boxes = init_params['dll'].hot_predict(init_params["hypes_path"], c_char_p(image_path), c_float(init_params['thresh']),
                                                 c_float(init_params['hier_thresh']))
-    return process_result_boxes(pred_boxes)
+    return process_result_boxes(pred_boxes, init_params)
 
 
 def sliding_predict(image_path, init_params):
@@ -116,11 +141,11 @@ def sliding_predict(image_path, init_params):
 
     # cutting
     result = []
-    for i in range(0, height, init_params["sliding_predict"]["step"] - init_params["sliding_predict"]["overlap"]):
-        print((0, i, width, min(height, i + init_params["sliding_predict"]["step"])))
+    for idx, i in enumerate(range(0, height, init_params["sliding_predict"]["step"] - init_params["sliding_predict"]["overlap"])):
+        # print((0, i, width, min(height, i + init_params["sliding_predict"]["step"])))
         img_part = img.crop((0, i, width, min(height, i + init_params["sliding_predict"]["step"])))
-        pred_boxes = predict_from_img(img_part, init_params)
-        processed_boxes = process_result_boxes(pred_boxes)
+        pred_boxes = predict_from_img(img_part, init_params, idx)
+        processed_boxes = process_result_boxes(pred_boxes, init_params, i)
         result.extend(processed_boxes)
 
     # combining the boxes
@@ -128,7 +153,7 @@ def sliding_predict(image_path, init_params):
     return result
 
 
-def process_result_boxes(pred_boxes):
+def process_result_boxes(pred_boxes, init_params, margin=0):
     result = []
     for ind in range(0, pred_boxes.size):
         box = {}
@@ -136,9 +161,9 @@ def process_result_boxes(pred_boxes):
                 or np.isnan(pred_boxes.arr[ind].right) or np.isnan(pred_boxes.arr[ind].bottom):
             continue
         box['x1'] = int(pred_boxes.arr[ind].left)
-        box['y1'] = int(pred_boxes.arr[ind].top) + i
+        box['y1'] = int(pred_boxes.arr[ind].top) + margin
         box['x2'] = int(pred_boxes.arr[ind].right)
-        box['y2'] = int(pred_boxes.arr[ind].bottom) + i
+        box['y2'] = int(pred_boxes.arr[ind].bottom) + margin
         box['conf'] = pred_boxes.arr[ind].conf
 
         if "classID" in init_params:
@@ -167,11 +192,14 @@ def calculate_medium_box(boxes):
     return new_box
 
 
-def combine_boxes(boxes, iou_min):
+def combine_boxes(boxes, iou_min, verbose=False):
     neighbours, result = [], []
     for i, box in enumerate(boxes):
         cur_set = set()
+        cur_set.add(i)
         for j, neigh_box in enumerate(boxes):
+            if verbose:
+                print(i, j, iou(box, neigh_box))
             if i != j and iou(box, neigh_box) > iou_min:
                 cur_set.add(j)
         if not len(cur_set):
@@ -192,7 +220,7 @@ def combine_boxes(boxes, iou_min):
     return result
 
 
-def predict_from_img(img, init_params):
+def predict_from_img(img, init_params, count):
     arr = np.array(img)
     h, w, c = arr.shape
 
@@ -205,8 +233,8 @@ def predict_from_img(img, init_params):
     ptr = cast(arr, POINTER(c_float))
 
     image = ImageYolo(c_int(h), c_int(w), c_int(c), ptr)
-    pred_boxes = init_params['dll'].hot_predict_image(init_params["hypes_path"], image, c_float(init_params['thresh']),
-                                                      c_float(init_params['hier_thresh']))
+    pred_boxes = init_params['dll'].hot_predict_image(c_char_p(init_params["hypes_path"]), image, c_float(init_params['thresh']),
+                                                      c_float(init_params['hier_thresh']), count)
 
     del arr
     return pred_boxes
@@ -231,6 +259,9 @@ def main():
     init_params = initialize(config["weights"], config["hypes"], config)
     result = hot_predict(image_filename, init_params)
     print(result)
+
+    classes = ["background", "banner", "float_banner", "logo", "sitename", "menu", "navigation", "button", "file", "social", "socialGroups", "goods", "form", "search", "header", "text", "image", "video", "map", "table", "slider", "gallery"]
+    save_results("19.jpg", "predictions_sliced.png", result, classes)
 
 if __name__ == '__main__':
     main()
