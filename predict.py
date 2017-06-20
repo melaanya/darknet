@@ -79,7 +79,7 @@ def initialize(weights_path, hypes_path, config=None, verbose=False):
         print ("model description required (for example cfg/yolo-my-test.cfg ")
         sys.exit()
 
-    mydll = cdll.LoadLibrary('/darknet/libresult.so')
+    mydll = cdll.LoadLibrary(config["yolo"]["so_library_path"])
     if 'pred_options' in config and 'cfg_width' in config['pred_options']:
         grid_parameters = GridParam(config['pred_options']['cfg_width'], config['pred_options']['cfg_width'])
         mydll.initialize_network_test_param(str(config["yolo"]['model_def_path']), str(weights_path), grid_parameters)
