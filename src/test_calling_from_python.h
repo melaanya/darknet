@@ -7,6 +7,7 @@
 typedef struct{
     float left, top, right, bottom;
     int class_num;
+    float conf;
 } result_box;
 
 typedef struct{

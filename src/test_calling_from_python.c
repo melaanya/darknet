@@ -144,6 +144,7 @@ result_box_arr result_detection(image im, int num, float thresh, box *boxes, flo
             // printf(" l= %f, r = %f, t = %f, b = %f\n", res.pred_boxes[count].left, res.pred_boxes[count].right, res.pred_boxes[count].top, res.pred_boxes[count].bottom);
 
             res.pred_boxes[count].class_num = class;
+            res.pred_boxes[count].conf = prob;
 
             if ((int)res.pred_boxes[count].left == (int)res.pred_boxes[count].right || (int)res.pred_boxes[count].top == (int)res.pred_boxes[count].bottom)
                 continue;
