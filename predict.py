@@ -2,6 +2,7 @@ from __future__ import division
 from ctypes import *
 import sys, json, subprocess
 import numpy as np
+import random
 from os import path
 from optparse import OptionParser
 from PIL import Image, ImageDraw
@@ -141,15 +142,21 @@ def sliding_predict(image_path, init_params):
 
     # cutting
     result = []
+    reached_end = False
     for idx, i in enumerate(range(0, height, init_params["sliding_predict"]["step"] - init_params["sliding_predict"]["overlap"])):
         # print((0, i, width, min(height, i + init_params["sliding_predict"]["step"])))
-        img_part = img.crop((0, i, width, min(height, i + init_params["sliding_predict"]["step"])))
+        if (height <= i + init_params["sliding_predict"]["step"]):
+            reached_end = True
+        top, bottom = i, min(height, i + init_params["sliding_predict"]["step"])
+        img_part = img.crop((0, top, width, bottom))
         pred_boxes = predict_from_img(img_part, init_params, idx)
         processed_boxes = process_result_boxes(pred_boxes, init_params, i)
         result.extend(processed_boxes)
+        if reached_end:
+            break
 
     # combining the boxes
-    result = combine_boxes(result, init_params["sliding_predict"]["iou_min"])
+    result = combine_boxes(result, init_params["sliding_predict"]["iou_min"], init_params["sliding_predict"]["nms"])
     return result
 
 
@@ -192,7 +199,18 @@ def calculate_medium_box(boxes):
     return new_box
 
 
-def combine_boxes(boxes, iou_min, verbose=False):
+def non_maximum_suppression(boxes):
+    conf = [box["conf"] for box in boxes]
+    ind = np.argmax(conf)
+    if isinstance(ind, int):
+        return boxes[ind]
+    else:
+        random.seed()
+        num = random.randint(0, len(ind))
+        return boxes[num]
+
+
+def combine_boxes(boxes, iou_min, nms, verbose=False):
     neighbours, result = [], []
     for i, box in enumerate(boxes):
         cur_set = set()
@@ -214,7 +232,10 @@ def combine_boxes(boxes, iou_min, verbose=False):
 
     for group in neighbours:
         cur_boxes = [boxes[i] for i in group]
-        medium_box = calculate_medium_box(cur_boxes)
+        if nms:
+            medium_box = non_maximum_suppression(cur_boxes)
+        else:
+            medium_box = calculate_medium_box(cur_boxes)
         result.append(medium_box)
 
     return result
