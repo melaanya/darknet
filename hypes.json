@@ -1,0 +1,21 @@
+{
+  "weights": "weights",
+  "hypes": "ds/goods/my_full_goods_ukit_clean_sliced.data",
+  "classID": 11,
+  "yolo":
+  {
+    "model_def_path" : "cfg/yolo-my-oneclass.cfg",
+    "so_library_path" : "libresult.so",
+    "thresh" : 0.2,
+    "hier_thresh": 0.5,
+    "cfg_width": 416
+  },
+  "sliding_predict": {
+    "sliding_window": true,
+    "step": 1280, 
+    "overlap" : 854, 
+    "iou_min": 0.5,
+    "nms": true
+  },
+  "verbose": false
+}
