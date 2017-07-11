@@ -20,6 +20,12 @@ typedef struct{
 	int height;
 } cfg_param;
 
+typedef struct{
+  int start_x, start_y, end_x, end_y;
+  int img_width, img_height;
+  float w_coeff, h_coeff;
+} box_transform_param;
+
 
 // void print_detections_to_file(image im, int num, float thresh, box *boxes, float **probs, int classes, int width_old, int height_old);
 void initialize_network_test(char *cfgfile, char *weightfile);

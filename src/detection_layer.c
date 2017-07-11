@@ -40,7 +40,7 @@ detection_layer make_detection_layer(int batch, int inputs, int n, int side, int
     l.delta_gpu = cuda_make_array(l.delta, batch*l.outputs);
 #endif
 
-    fprintf(stderr, "Detection Layer\n");
+    // fprintf(stderr, "Detection Layer\n");
     srand(0);
 
     return l;
@@ -273,4 +273,3 @@ void backward_detection_layer_gpu(detection_layer l, network net)
     //copy_ongpu(l.batch*l.inputs, l.delta_gpu, 1, net.delta_gpu, 1);
 }
 #endif
-

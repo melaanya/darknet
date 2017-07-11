@@ -329,8 +329,8 @@ void correct_region_boxes(box *boxes, int n, int w, int h, int netw, int neth, i
     }
     for (i = 0; i < n; ++i){
         box b = boxes[i];
-        b.x =  (b.x - (netw - new_w)/2./netw) / ((float)new_w/netw); 
-        b.y =  (b.y - (neth - new_h)/2./neth) / ((float)new_h/neth); 
+        b.x =  (b.x - (netw - new_w)/2./netw) / ((float)new_w/netw);
+        b.y =  (b.y - (neth - new_h)/2./neth) / ((float)new_h/neth);
         b.w *= (float)netw/new_w;
         b.h *= (float)neth/new_h;
         if(!relative){
@@ -406,9 +406,9 @@ void get_region_boxes(layer l, int w, int h, int netw, int neth, float thresh, f
                     probs[index][j] = (prob > thresh) ? prob : 0;
                     if(prob > max) max = prob;
                     // TODO REMOVE
-                    // if (j == 56 ) probs[index][j] = 0; 
+                    // if (j == 56 ) probs[index][j] = 0;
                     /*
-                       if (j != 0) probs[index][j] = 0; 
+                       if (j != 0) probs[index][j] = 0;
                        int blacklist[] = {121, 497, 482, 504, 122, 518,481, 418, 542, 491, 914, 478, 120, 510,500};
                        int bb;
                        for (bb = 0; bb < sizeof(blacklist)/sizeof(int); ++bb){
@@ -497,4 +497,3 @@ void zero_objectness(layer l)
         }
     }
 }
-
