@@ -374,7 +374,7 @@ void validate_detector_flip(char *datacfg, char *cfgfile, char *weightfile, char
         if(fps) fclose(fps[j]);
     }
     if(coco){
-        fseek(fp, -2, SEEK_CUR); 
+        fseek(fp, -2, SEEK_CUR);
         fprintf(fp, "\n]\n");
         fclose(fp);
     }
@@ -505,7 +505,7 @@ void validate_detector(char *datacfg, char *cfgfile, char *weightfile, char *out
         if(fps) fclose(fps[j]);
     }
     if(coco){
-        fseek(fp, -2, SEEK_CUR); 
+        fseek(fp, -2, SEEK_CUR);
         fprintf(fp, "\n]\n");
         fclose(fp);
     }
@@ -642,7 +642,7 @@ void test_detector(char *datacfg, char *cfgfile, char *weightfile, char *filenam
         else{
             save_image(im, "predictions");
 #ifdef OPENCV
-            cvNamedWindow("predictions", CV_WINDOW_NORMAL); 
+            cvNamedWindow("predictions", CV_WINDOW_NORMAL);
             if(fullscreen){
                 cvSetWindowProperty("predictions", CV_WND_PROP_FULLSCREEN, CV_WINDOW_FULLSCREEN);
             }
@@ -709,22 +709,22 @@ void run_detector(int argc, char **argv)
     char *filename = (argc > 6) ? argv[6]: 0;
 
     if(0==strcmp(argv[2], "test")) test_detector(datacfg, cfg, weights, filename, thresh, hier_thresh, outfile, fullscreen);
-    else if(0==strcmp(argv[2], "testNew")) {
-        initialize_network_test(cfg, weights);
-        hot_predict(datacfg, filename, thresh, hier_thresh);
-    }
-    else if(0==strcmp(argv[2], "testParam")) {
-        char * pEnd;
-        int width = (argc > 7) ? strtol(argv[7], &pEnd, 10): 416;
-        int height = (argc > 8) ? strtol(argv[8], &pEnd, 10): 416;
-        printf("%d %d\n", width, height);
-
-        cfg_param param = {width, height};
-
-        initialize_network_test_param(cfg, weights, param);
-        printf("here\n");
-        hot_predict(datacfg, filename, thresh, hier_thresh);
-    }
+    // else if(0==strcmp(argv[2], "testNew")) {
+    //     initialize_network_test(cfg, weights);
+    //     hot_predict(datacfg, filename, thresh, hier_thresh);
+    // }
+    // else if(0==strcmp(argv[2], "testParam")) {
+    //     char * pEnd;
+    //     int width = (argc > 7) ? strtol(argv[7], &pEnd, 10): 416;
+    //     int height = (argc > 8) ? strtol(argv[8], &pEnd, 10): 416;
+    //     printf("%d %d\n", width, height);
+    //
+    //     cfg_param param = {width, height};
+    //
+    //     initialize_network_test_param(cfg, weights, param);
+    //     printf("here\n");
+    //     hot_predict(datacfg, filename, thresh, hier_thresh);
+    // }
     else if(0==strcmp(argv[2], "train")) train_detector(datacfg, cfg, weights, gpus, ngpus, clear);
     else if(0==strcmp(argv[2], "valid")) validate_detector(datacfg, cfg, weights, outfile);
     else if(0==strcmp(argv[2], "valid2")) validate_detector_flip(datacfg, cfg, weights, outfile);

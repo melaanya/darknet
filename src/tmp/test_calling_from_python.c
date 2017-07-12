@@ -14,7 +14,7 @@
 network current_network;
 int network_created = 0;
 
-result_box transform_box(box b, box_transform_param config, int class, float prob) {
+result_box transform_box(box b, box_transform_param config, int class, int prob) {
   result_box res_b;
 
   int left  = (b.x-b.w/2.)*config.img_width;
@@ -39,7 +39,7 @@ result_box transform_box(box b, box_transform_param config, int class, float pro
   res_b.top = (int)((top - config.start_y) * config.h_coeff);
   res_b.bottom = (int)((bottom - config.start_y) *config.h_coeff);
 
-  if (res_b.left >= res_b.right || res_b.top >= res_b.bottom){
+  if (res_b.left == res_b.right || res_b.top == res_b.bottom){
     return  (result_box){-1, -1, -1, -1, -1, -1};
   }
 
@@ -82,7 +82,6 @@ result_box_arr result_detection(image im, int num, float thresh, box *boxes, flo
         if(prob > thresh){
         	arr_size++;
         }
-
     }
     result_box_arr res;
     res.pred_boxes = (result_box *)malloc(arr_size * sizeof(result_box));
@@ -95,15 +94,7 @@ result_box_arr result_detection(image im, int num, float thresh, box *boxes, flo
         float prob = probs[i][class];
         if(prob > thresh){
             box b = boxes[i];
-
-            result_box cur_box = transform_box(b, config, class, prob);
-            if (cur_box.left == -1)
-            {
-               res.size--;
-               continue;
-            }
-
-            res.pred_boxes[count] = cur_box;
+            res.pred_boxes[count] = transform_box(b, config, class, prob);
 
             assert(res.pred_boxes[count].left < width_old);
             assert(res.pred_boxes[count].right < width_old);
@@ -262,6 +253,7 @@ result_box_arr hot_predict(char *datacfg, char *filename, image part_im, float t
     else if (nms) do_nms_sort(boxes, probs, l.w*l.h*l.n, l.classes, nms);
 
     result_box_arr res = result_detection(sized, l.w*l.h*l.n, thresh, boxes, probs, l.classes, old_width, old_height, width_resized, height_resized);
+
     if (from_image != 1) {
       free_image(im);
     }

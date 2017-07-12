@@ -41,10 +41,10 @@ def save_results(src_path, dst_path, rects, classes):
 
 class Box(Structure):
     _fields_ = [
-        ('left', c_float),
-        ('top', c_float),
-        ('right', c_float),
-        ('bottom', c_float),
+        ('left', c_int),
+        ('top', c_int),
+        ('right', c_int),
+        ('bottom', c_int),
         ('class_num', c_int),
         ('conf', c_float)]
 
@@ -87,7 +87,11 @@ def intersection_area(rect1, rect2):
 def detailed_iou(rect1, rect2):
     intersection = intersection_area(rect1, rect2)
     union = area(rect1) + area(rect2) - intersection
-    return intersection, union, intersection / float(union)
+    if union != 0:
+        return intersection, union, intersection / float(union)
+    else:
+        print("Something went wrong!!!!")
+        exit(1)
 
 
 def iou(rect1, rect2):
@@ -133,8 +137,10 @@ def initialize(weights_path, hypes_path, options=None):
 
 def hot_predict(image_path, init_params, verbose=False):
     if check_network(init_params['dll']):
+
         # to fix change names of paths in file
         # image_path = '..' + image_path
+        init_params['dll'].hot_predict.restype = BoxArray
         if verbose:
             print(image_path)
         if not path.exists(image_path):
@@ -158,14 +164,15 @@ def hot_predict(image_path, init_params, verbose=False):
 
 
 def regular_predict(image_path, init_params):
-    init_params['dll'].hot_predict.restype = BoxArray
-    pred_boxes = init_params['dll'].hot_predict(init_params['hypes_path'], c_char_p(image_path), c_float(init_params['thresh']),
-                                                c_float(init_params['hier_thresh']))
+    empty_image = ImageYolo(c_int(0), c_int(0), c_int(0), pointer(c_float(0)))
+    from_image = 0
+    pred_boxes = init_params['dll'].hot_predict(init_params['hypes_path'], c_char_p(image_path), empty_image, c_float(init_params['thresh']),
+                                                c_float(init_params['hier_thresh']), c_int(from_image))
+
     return process_result_boxes(pred_boxes, init_params)
 
 
 def sliding_predict(image_path, init_params):
-    init_params['dll'].hot_predict_image.restype = BoxArray
     img = Image.open(image_path)
     width, height = img.size
 
@@ -180,7 +187,7 @@ def sliding_predict(image_path, init_params):
             reached_end = True
         top, bottom = i, min(height, i + init_params['sliding_predict']['step'])
         img_part = img.crop((0, top, width, bottom))
-        pred_boxes = predict_from_img(img_part, init_params, idx)
+        pred_boxes = predict_from_img(img_part, init_params)
         processed_boxes = process_result_boxes(pred_boxes, init_params, i)
         result.extend(processed_boxes)
         if reached_end:
@@ -199,10 +206,10 @@ def process_result_boxes(pred_boxes, init_params, margin=0):
         if np.isnan(pred_boxes.arr[ind].left) or np.isnan(pred_boxes.arr[ind].top) \
                 or np.isnan(pred_boxes.arr[ind].right) or np.isnan(pred_boxes.arr[ind].bottom):
             continue
-        box['x1'] = int(pred_boxes.arr[ind].left)
-        box['y1'] = int(pred_boxes.arr[ind].top) + margin
-        box['x2'] = int(pred_boxes.arr[ind].right)
-        box['y2'] = int(pred_boxes.arr[ind].bottom) + margin
+        box['x1'] = pred_boxes.arr[ind].left
+        box['y1'] = pred_boxes.arr[ind].top + margin
+        box['x2'] = pred_boxes.arr[ind].right
+        box['y2'] = pred_boxes.arr[ind].bottom + margin
         box['conf'] = pred_boxes.arr[ind].conf
 
         if 'classID' in init_params:
@@ -273,7 +280,7 @@ def combine_boxes(boxes, iou_min, nms, verbose=False):
     return result
 
 
-def predict_from_img(img, init_params, count):
+def predict_from_img(img, init_params):
     arr = np.array(img)
     h, w, c = arr.shape
 
@@ -286,8 +293,9 @@ def predict_from_img(img, init_params, count):
     ptr = cast(arr, POINTER(c_float))
 
     image = ImageYolo(c_int(h), c_int(w), c_int(c), ptr)
-    pred_boxes = init_params['dll'].hot_predict_image(c_char_p(init_params['hypes_path']), image, c_float(init_params['thresh']),
-                                                      c_float(init_params['hier_thresh']), count)
+    from_image = 1
+    pred_boxes = init_params['dll'].hot_predict(c_char_p(init_params['hypes_path']), c_char_p(""), image, c_float(init_params['thresh']),
+                                                      c_float(init_params['hier_thresh']), c_int(from_image))
 
     del arr
     return pred_boxes
@@ -307,14 +315,14 @@ def main():
 
     config = json.load(open(args[0], 'r'))
     # image for test
-    image_filename = '19.jpg'
+    image_filename = '58aaf4d1eafdec551a653227.jpg'
 
     init_params = initialize(config['weights'], config['hypes'], {})
     result = hot_predict(image_filename, init_params)
     print(result)
 
     classes = ['background', 'banner', 'float_banner', 'logo', 'sitename', 'menu', 'navigation', 'button', 'file', 'social', 'socialGroups', 'goods', 'form', 'search', 'header', 'text', 'image', 'video', 'map', 'table', 'slider', 'gallery']
-    save_results('19.jpg', 'predictions_sliced.png', result, classes)
+    save_results('58aaf4d1eafdec551a653227.jpg', 'predictions_sliced.png', result, classes)
 
 if __name__ == '__main__':
     main()
