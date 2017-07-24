@@ -100,7 +100,6 @@ def iou(rect1, rect2):
 
 
  # weights_path - path to weights (for example: 'backup/yolo-my_final.weights')
- # hypes_path - path to data description (for example: 'ds/my.data')
  # options['model_def_path'] - model description ('cfg/yolo-my-test.cfg') REQUIRED
 def initialize(weights_path, hypes_path, options=None):
 
@@ -127,7 +126,7 @@ def initialize(weights_path, hypes_path, options=None):
     else:
         mydll.initialize_network_test(path.join(param_folder, str(config['yolo']['model_def_path'])), path.join(param_folder, str(weights_path)))
 
-    result = {'dll' : mydll, 'hypes_path': path.join(param_folder, config['hypes']), 'thresh': config['yolo']['thresh'], 'hier_thresh': config['yolo']['hier_thresh'],
+    result = {'dll' : mydll, 'thresh': config['yolo']['thresh'], 'hier_thresh': config['yolo']['hier_thresh'],
               'sliding_predict': config['sliding_predict']}
 
     if 'classID' in config:
@@ -166,7 +165,7 @@ def hot_predict(image_path, init_params, verbose=False):
 def regular_predict(image_path, init_params):
     empty_image = ImageYolo(c_int(0), c_int(0), c_int(0), pointer(c_float(0)))
     from_image = 0
-    pred_boxes = init_params['dll'].hot_predict(init_params['hypes_path'], c_char_p(image_path), empty_image, c_float(init_params['thresh']),
+    pred_boxes = init_params['dll'].hot_predict(c_char_p(image_path), empty_image, c_float(init_params['thresh']),
                                                 c_float(init_params['hier_thresh']), c_int(from_image))
 
     return process_result_boxes(pred_boxes, init_params)
@@ -294,7 +293,7 @@ def predict_from_img(img, init_params):
 
     image = ImageYolo(c_int(h), c_int(w), c_int(c), ptr)
     from_image = 1
-    pred_boxes = init_params['dll'].hot_predict(c_char_p(init_params['hypes_path']), c_char_p(""), image, c_float(init_params['thresh']),
+    pred_boxes = init_params['dll'].hot_predict(c_char_p(""), image, c_float(init_params['thresh']),
                                                       c_float(init_params['hier_thresh']), c_int(from_image))
 
     del arr
@@ -302,27 +301,23 @@ def predict_from_img(img, init_params):
 
 
 def main():
-    parser = OptionParser(usage='usage: %prog [options] <config>')
+    parser = OptionParser(usage='usage: %prog [options] <image_path> <weights> <hypes>')
     _, args = parser.parse_args()
 
-    if len(args) < 1:
-        print('Provide path configuration json file')
+    if len(args) < 3:
+        print('Provide image path, weights and hypes')
         return
 
-    if not path.exists(args[0]) or not path.isfile(args[0]):
-        print ('Bad configuration path provided!')
+    if not path.exists(args[2]) or not path.isfile(args[2]):
+        print ('Bad hypes path provided!')
         return
 
-    config = json.load(open(args[0], 'r'))
-    # image for test
-    image_filename = '58aaf4d1eafdec551a653227.jpg'
-
-    init_params = initialize(config['weights'], config['hypes'], {})
-    result = hot_predict(image_filename, init_params)
+    init_params = initialize(args[1], args[2], {})
+    result = hot_predict(args[0], init_params)
     print(result)
 
     classes = ['background', 'banner', 'float_banner', 'logo', 'sitename', 'menu', 'navigation', 'button', 'file', 'social', 'socialGroups', 'goods', 'form', 'search', 'header', 'text', 'image', 'video', 'map', 'table', 'slider', 'gallery']
-    save_results('58aaf4d1eafdec551a653227.jpg', 'predictions_sliced.png', result, classes)
+    save_results(args[0], 'predictions_sliced.png', result, classes)
 
 if __name__ == '__main__':
     main()

@@ -30,7 +30,7 @@ typedef struct{
 // void print_detections_to_file(image im, int num, float thresh, box *boxes, float **probs, int classes, int width_old, int height_old);
 void initialize_network_test(char *cfgfile, char *weightfile);
 void initialize_network_test_param(char *cfgfile, char *weightfile, cfg_param grid_parameters);
-result_box_arr hot_predict(char *datacfg, char *filename, image part_im, float thresh, float hier_thresh, int from_image);
+result_box_arr hot_predict(char *filename, image part_im, float thresh, float hier_thresh, int from_image);
 float * calculate_map_of_probabilities(layer l, float **probs, image im, box *boxes, int num_anchors,
                                         int classes, int width_old, int height_old, int width_resized, int height_resized);
 

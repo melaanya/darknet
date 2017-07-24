@@ -175,7 +175,7 @@ float * calculate_map_of_probabilities(layer l, float **probs, image im, box *bo
 }
 
 
-// float ** map_of_probabilities(char *datacfg, char *filename, float thresh, float hier_thresh) {
+// float ** map_of_probabilities(char *filename, float thresh, float hier_thresh) {
 //     network net;
 //     if (network_created)
 //         net = current_network;
@@ -183,7 +183,6 @@ float * calculate_map_of_probabilities(layer l, float **probs, image im, box *bo
 //         printf("network isn't initialized!\n");
 //         exit(1);
 //     }
-//     // printf("%s %s %f %f\n", datacfg, filename, thresh, hier_thresh);
 //     srand(2222222);
 //     char buff[256];
 //     char *input = buff;
@@ -221,7 +220,7 @@ float * calculate_map_of_probabilities(layer l, float **probs, image im, box *bo
 
 
 
-result_box_arr hot_predict(char *datacfg, char *filename, image part_im, float thresh, float hier_thresh, int from_image) {
+result_box_arr hot_predict(char *filename, image part_im, float thresh, float hier_thresh, int from_image) {
     network net;
     if (network_created)
         net = current_network;
