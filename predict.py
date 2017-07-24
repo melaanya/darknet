@@ -312,7 +312,9 @@ def main():
         print ('Bad hypes path provided!')
         return
 
-    init_params = initialize(args[1], args[2], {})
+    config = json.load(open(args[2], "r"))
+
+    init_params = initialize(config['weights'], args[2], {})
     result = hot_predict(args[0], init_params)
     print(result)
 
