@@ -99,10 +99,17 @@ def iou(rect1, rect2):
     return val
 
 
- # weights_path - path to weights (for example: 'backup/yolo-my_final.weights')
- # options['model_def_path'] - model description ('cfg/yolo-my-test.cfg') REQUIRED
 def initialize(weights_path, hypes_path, options=None):
+    """ initialization cover function for initialization function written in C
 
+        Args:
+            weights_path (string): the path to weights (for example: 'backup/yolo-my_final.weights')
+            hypes (string): the path to parameters file (hypes.json)
+            options (dict): additional parameters
+
+        Returns (dict): 
+            initialization parameters for hot_predict
+    """
     config = json.load(open(hypes_path, 'r'))
 
     # fields from options are added and they overwrite fields in hypes if the same
@@ -135,6 +142,20 @@ def initialize(weights_path, hypes_path, options=None):
 
 
 def hot_predict(image_path, init_params, verbose=False):
+    """ gets prediction in json format for one image
+        uses two helper-functions^ regular_predict and sliding_predict
+        each of them calls the function written in c and stored in the .so library
+        and makes specific pre- and postprocessing
+
+        Args:
+            image_path (string): the path to image for prediction
+            init_params (dict): prediction parameters
+            verbose (bool): whether to allow writing additional information to console
+
+        Returns (dict): 
+            result of prediction in json format
+    """
+
     if check_network(init_params['dll']):
 
         # to fix change names of paths in file
@@ -163,6 +184,15 @@ def hot_predict(image_path, init_params, verbose=False):
 
 
 def regular_predict(image_path, init_params):
+    """ helper function - wrapper for calling hot_predict in c for the image without sliding_window
+
+        Args:
+            image_path (string): the path to image for prediction
+            init_params (dict): prediction parameters
+
+        Returns (dict): 
+            result of prediction in json format
+    """
     empty_image = ImageYolo(c_int(0), c_int(0), c_int(0), pointer(c_float(0)))
     from_image = 0
     pred_boxes = init_params['dll'].hot_predict(c_char_p(image_path), empty_image, c_float(init_params['thresh']),
@@ -172,6 +202,15 @@ def regular_predict(image_path, init_params):
 
 
 def sliding_predict(image_path, init_params):
+    """ helper function - wrapper for calling hot_predict in c for the image with sliding_windows
+
+        Args:
+            image_path (string): the path to image for prediction
+            init_params (dict): prediction parameters
+
+        Returns (dict): 
+            result of prediction in json format
+    """
     img = Image.open(image_path)
     width, height = img.size
 
@@ -181,13 +220,13 @@ def sliding_predict(image_path, init_params):
     result = []
     reached_end = False
     for idx, i in enumerate(range(0, height, init_params['sliding_predict']['step'] - init_params['sliding_predict']['overlap'])):
-        # print((0, i, width, min(height, i + init_params['sliding_predict']['step'])))
-        if (height <= i + init_params['sliding_predict']['step']):
-            reached_end = True
         top, bottom = i, min(height, i + init_params['sliding_predict']['step'])
+        if (height <= i + init_params['sliding_predict']['step']):
+            top = bottom - init_params['sliding_predict']['step']
+            reached_end = True
         img_part = img.crop((0, top, width, bottom))
         pred_boxes = predict_from_img(img_part, init_params)
-        processed_boxes = process_result_boxes(pred_boxes, init_params, i)
+        processed_boxes = process_result_boxes(pred_boxes, init_params, top)
         result.extend(processed_boxes)
         if reached_end:
             break
@@ -199,6 +238,18 @@ def sliding_predict(image_path, init_params):
 
 
 def process_result_boxes(pred_boxes, init_params, margin=0):
+    """ transforming received bounding boxes from ctypes format to json format
+
+        Args:
+            pred_boxes (list): predicted boxes for the image
+            init_params (dict): prediction parameters
+            margin(int): number of pixels to add to the box['y1'] and box['y2'] 
+                        in case of sliding_predict
+
+        Returns (dict): 
+            result of prediction in json format
+    """
+
     result = []
     for ind in range(0, pred_boxes.size):
         box = {}
@@ -221,6 +272,15 @@ def process_result_boxes(pred_boxes, init_params, margin=0):
 
 # works correctly ONLY in case of one class detection
 def calculate_medium_box(boxes):
+    """ medium box calculation (possible replacement for nms)
+    from group boxes it calculates only one medium box 
+
+        Args:
+            boxes(list): group of boxes to combine
+
+        Returns (dict): 
+            one medium box
+    """
     x1, y1, x2, y2, conf_sum = 0, 0, 0, 0, 0
     new_box = {}
     for box in boxes:
@@ -249,6 +309,18 @@ def non_maximum_suppression(boxes):
 
 
 def combine_boxes(boxes, iou_min, nms, verbose=False):
+    """ creates groups of boxes (according to their intersection) and later leaves only one box from each group
+
+        Args:
+            boxes(list): group of boxes to combine
+            iou_min(double): min iou considered to count boxes from one group
+            nms (bool): if True - nms used for choosing one box
+                        else calculate_medium_box is used
+            verbose(bool): verbose (bool): whether to allow writing additional information to console
+
+        Returns (list): 
+            list of boxes where boxes are all from different groups
+    """
     neighbours, result = [], []
     for i, box in enumerate(boxes):
         cur_set = set()
@@ -280,6 +352,15 @@ def combine_boxes(boxes, iou_min, nms, verbose=False):
 
 
 def predict_from_img(img, init_params):
+    """ helper function which wraps prediction from img (not from image_path) in C
+    
+        Args:
+            img(PIL Image): piece of image in PIL formatting
+            init_params (dict): prediction parameters
+
+        Returns (list): 
+            list of boxes in ctypes format
+    """
     arr = np.array(img)
     h, w, c = arr.shape
 
