@@ -1276,7 +1276,7 @@ void load_weights_upto(network *net, char *filename, int start, int cutoff)
         cuda_set_device(net->gpu_index);
     }
 #endif
-    // fprintf(stderr, "Loading weights from %s...", filename);
+    fprintf(stderr, "Loading weights from %s...", filename);
     fflush(stdout);
     FILE *fp = fopen(filename, "rb");
     if(!fp) file_error(filename);

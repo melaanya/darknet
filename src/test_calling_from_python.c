@@ -14,6 +14,15 @@
 network current_network;
 int network_created = 0;
 
+/** Make necessary back transformations for the box from reduced image to its real size.
+  * Also there are several checks for consistency
+
+  * @param b: bounding box to be transformed
+  * @param config: transformation parameters (depending on the image charactersitics)
+  * @param class: class of the predicted box
+  * @param prob: confidence which the box is predicted with
+  * @return transformed box ready to be given to the python wrapper
+*/
 result_box transform_box(box b, box_transform_param config, int class, float prob) {
   result_box res_b;
 
@@ -21,8 +30,6 @@ result_box transform_box(box b, box_transform_param config, int class, float pro
   int right = (b.x+b.w/2.)*config.img_width;
   int top   = (b.y-b.h/2.)*config.img_height;
   int bottom   = (b.y+b.h/2.)*config.img_height;
-
-  // printf("\n %f %d %d %d %d \n\n ", prob, left, top, right, bottom);
 
   if (left > config.end_x || right < config.start_x || top > config.end_y
     || bottom < config.start_x) {
@@ -49,7 +56,20 @@ result_box transform_box(box b, box_transform_param config, int class, float pro
   return res_b;
 }
 
+/** From image parameters and some additional user data calculates the set of
+  * transformation parameters
+  * It is useful to know that in yolo aspect ration is saved after resize.
+  * If image shape wasn't square before resize, the rest of the resized image is
+  * filled with grey color. This function helps to transform predictions back
+  * correctly
 
+  * @param image: image data
+  * @param width_old: width of the image before resize
+  * @param height_old: height of the image before resize
+  * @param width_resized: width of the image after resize
+  * @param height_resized: height of the image after resize
+  * @return necessary parameters for later transformations
+*/
 box_transform_param box_transform_param_calculation(image im, int width_old, int height_old, int width_resized, int height_resized){
   int start_x, start_y;
   if (((float)im.w/width_old) < ((float)im.h/height_old)) {  // width rescaling
@@ -71,6 +91,22 @@ box_transform_param box_transform_param_calculation(image im, int width_old, int
 }
 
 
+
+/** chooses the boxes which confidence is higher than thresh
+and calls the function wiche prepares them for python wrapper
+
+  * @param image: image data
+  * @param num: number of boxes returned by the network
+  * @param thresh: minimum confidence with which the box is counted as a predicted one
+  * @param boxes: array of boxes returned by the network
+  * @param probs: double array of probabilities for each box and class
+  * @param classes: number of possible classes
+  * @param width_old: width of the image before resize
+  * @param height_old: height of the image before resize
+  * @param width_resized: width of the image after resize
+  * @param height_resized: height of the image after resize
+  * @return necessary parameters for later transformations
+*/
 result_box_arr result_detection(image im, int num, float thresh, box *boxes, float **probs, int classes, int width_old, int height_old, int width_resized, int height_resized)
 {
     // helper part for python - just counting the size of the array
@@ -115,7 +151,12 @@ result_box_arr result_detection(image im, int num, float thresh, box *boxes, flo
     return res;
 }
 
+/** initialize network for predictions
 
+  * @param cfgfile: path to cfg file with description of the network
+  * @param num: path to binary file .weigths
+  * @return: nothing, but sets the global variable network_created in position 1
+*/
 void initialize_network_test(char *cfgfile, char *weightfile)
 {
     network net = parse_network_cfg(cfgfile);
@@ -127,7 +168,13 @@ void initialize_network_test(char *cfgfile, char *weightfile)
     current_network = net;
 }
 
+/** initialize network for predictions with parameters from python
 
+  * @param cfgfile: path to cfg file with description of the network
+  * @param num: path to binary file .weigths
+  * @param grid_parameters: parameters to change in the structure of the network
+  * @return: nothing, but sets the global variable network_created in position 1
+*/
 void initialize_network_test_param(char *cfgfile, char *weightfile, cfg_param grid_parameters)
 {
     if (network_created) {
@@ -142,7 +189,27 @@ void initialize_network_test_param(char *cfgfile, char *weightfile, cfg_param gr
 }
 
 
-float * calculate_map_of_probabilities(layer l, float **probs, image im, box *boxes, int num_anchors, int classes, int width_old, int height_old, int width_resized, int height_resized) {
+/** HAVE NEVER BEEN IN USE - NEEDS CAREFUL TESTING
+  * calculates the map of probabilities to build an assemly of several neural networks
+  * more or less detailed plan you can find in google doc
+  * for each pixel of the image we calculate the probability of appearance of
+  * bounding box there by counting the intersection of probabilities
+  * for each anchor and for each cell of the grid
+  * we decided to take into account all the boxes returned by the network
+  * (not only boxes which confidence is higher than thresh --- is is true???)
+
+  * @param image: image data
+  * @param boxes: array of boxes returned by the network
+  * @param probs: double array of probabilities for each box and class
+  * @param num_anchors: number of the anchors in cfg file
+  * @param classes: number of possible classes
+  * @param width_old: width of the image before resize
+  * @param height_old: height of the image before resize
+  * @param width_resized: width of the image after resize
+  * @param height_resized: height of the image after resize
+  * @return map of probabilities
+*/
+float * calculate_map_of_probabilities(image im, box *boxes, float **probs, int num_anchors, int classes, int width_old, int height_old, int width_resized, int height_resized) {
     int i, j;
     box_transform_param config = box_transform_param_calculation(im, width_old, height_old, width_resized, height_resized);
     float * map = calloc(width_old * height_old, sizeof(float));
@@ -174,52 +241,17 @@ float * calculate_map_of_probabilities(layer l, float **probs, image im, box *bo
     return map;
 }
 
+/** calculates predictions for one image - either from file on the disk
+  or from image which is already in the memory
 
-// float ** map_of_probabilities(char *filename, float thresh, float hier_thresh) {
-//     network net;
-//     if (network_created)
-//         net = current_network;
-//     else {
-//         printf("network isn't initialized!\n");
-//         exit(1);
-//     }
-//     srand(2222222);
-//     char buff[256];
-//     char *input = buff;
-//     int j;
-//     float nms=.4;
-//
-//     strncpy(input, filename, 256);
-//
-//     image im = load_image_color(input,0,0);
-//     int old_width = im.w;
-//     int old_height = im.h;
-//     int width_resized, height_resized;
-//     // printf("old_width = %d, old_height = %d\n", old_width, old_height);
-//     image sized = letterbox_image_with_info(im, net.w, net.h, &width_resized, &height_resized);
-//     // printf("new_width = %d, new_height = %d\n", width_resized, height_resized);
-//     layer l = net.layers[net.n-1];
-//
-//     box *boxes = calloc(l.w*l.h*l.n, sizeof(box));
-//     float **probs = calloc(l.w*l.h*l.n, sizeof(float *));
-//     for(j = 0; j < l.w*l.h*l.n; ++j) probs[j] = calloc(l.classes + 1, sizeof(float *));
-//
-//     float *X = sized.data;
-//     network_predict(net, X);
-//     // printf("%s: Predicted in %f seconds.\n", input, sec(clock()-time));
-//     get_region_boxes(l, 1, 1, net.w, net.h, thresh, probs, boxes, 0, 0, hier_thresh, 1);
-//
-//     float ** map_prob = calculate_map_of_probabilities();
-//     free_image(im);
-//     free_image(sized);
-//     free(boxes);
-//     free_ptrs((void **)probs, l.w*l.h*l.n);
-//
-//     return map_prob;
-// }
-
-
-
+  * @param filename: the path to image stored on the disk
+  * @param part_im: image already stored in the memory
+  * @param thresh: minimum confidence with which the box is counted as a predicted one
+  * @param hier_thresh: confidence for hierarchical structure - currently not used, supported for possible future changes
+  * @param from_image: if the flag is set to 1, the image information is taken from parameter part_im,
+                       otherwise it is read from filename path
+  * @return array of boxes ready for python wrapper
+*/
 result_box_arr hot_predict(char *filename, image part_im, float thresh, float hier_thresh, int from_image) {
     network net;
     if (network_created)
