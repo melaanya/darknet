@@ -395,12 +395,12 @@ def main():
 
     config = json.load(open(args[2], "r"))
 
-    init_params = initialize(config['weights'], args[2], {})
+    init_params = initialize(args[1], args[2], {})
     result = hot_predict(args[0], init_params)
     print(result)
 
     classes = ['background', 'banner', 'float_banner', 'logo', 'sitename', 'menu', 'navigation', 'button', 'file', 'social', 'socialGroups', 'goods', 'form', 'search', 'header', 'text', 'image', 'video', 'map', 'table', 'slider', 'gallery']
-    save_results(args[0], 'predictions_sliced.png', result, classes)
+    save_results(args[0], 'predictions.png', result, classes)
 
 if __name__ == '__main__':
     main()
